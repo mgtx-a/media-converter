@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Media Converter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #212529;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #0d6efd;
+      color: #fff;
+      padding: 0 24px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      padding: 28px 32px;
+      margin: 32px auto;
+      max-width: 720px;
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #343a40;
+      margin-bottom: 14px;
+    }
+
+    /* ── Upload zone ── */
+    #drop-zone {
+      border: 2px dashed #ced4da;
+      border-radius: 8px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      color: #6c757d;
+      font-size: 15px;
+    }
+    #drop-zone.drag-over  { border-color: #0d6efd; background: #e7f1ff; }
+    #drop-zone.has-file   { border-style: solid; border-color: #198754; background: #f0fff4; color: #198754; }
+    #drop-zone .icon      { font-size: 48px; display: block; margin-bottom: 10px; }
+    #drop-zone p          { margin-top: 6px; font-size: 13px; color: #adb5bd; }
+    #file-input           { display: none; }
+
+    /* ── Video preview + trim ── */
+    #trim-section { display: none; }
+
+    .video-wrap {
+      position: relative;
+      background: #000;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .video-wrap video {
+      display: block;
+      width: 100%;
+      max-height: 360px;
+      object-fit: contain;
+    }
+
+    /* Trim slider track */
+    .trim-track {
+      position: relative;
+      height: 32px;
+      margin: 0 0 4px;
+      user-select: none;
+    }
+    .trim-track .rail {
+      position: absolute;
+      top: 50%;
+      left: 0; right: 0;
+      height: 6px;
+      transform: translateY(-50%);
+      background: #dee2e6;
+      border-radius: 3px;
+    }
+    .trim-track .fill {
+      position: absolute;
+      top: 50%;
+      height: 6px;
+      transform: translateY(-50%);
+      background: #0d6efd;
+      border-radius: 3px;
+    }
+    .trim-track input[type=range] {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 100%;
+      margin: 0;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      pointer-events: none;
+    }
+    .trim-track input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #0d6efd;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3);
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .trim-track input[type=range]::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #0d6efd;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3);
+      cursor: pointer;
+      pointer-events: all;
+    }
+    .trim-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    .trim-labels span.selected-dur {
+      color: #0d6efd;
+      font-weight: 600;
+    }
+    .trim-reset {
+      font-size: 12px;
+      color: #6c757d;
+      background: none;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      padding: 2px 10px;
+      cursor: pointer;
+    }
+    .trim-reset:hover { border-color: #6c757d; }
+
+    /* ── Options ── */
+    #options-section { display: none; }
+
+    .option-group {
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .option-group label.group-label {
+      font-weight: 700;
+      font-size: 13px;
+      display: block;
+      margin-bottom: 12px;
+      color: #343a40;
+    }
+
+    /* Format radios */
+    .fmt-radios { display: flex; gap: 10px; flex-wrap: wrap; }
+    .fmt-radios label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: border-color .15s, background .15s;
+    }
+    .fmt-radios label:hover { border-color: #0d6efd; }
+    .fmt-radios input[type=radio] { accent-color: #0d6efd; }
+    .fmt-radios input[type=radio]:checked + span { color: #0d6efd; font-weight: 600; }
+    .fmt-radios label:has(input:checked) {
+      border-color: #0d6efd;
+      background: #e7f1ff;
+    }
+
+    .fmt-desc {
+      font-size: 11px;
+      color: #6c757d;
+      margin-top: 8px;
+    }
+
+    /* Checkbox rows */
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .check-row input[type=checkbox] { accent-color: #0d6efd; width: 16px; height: 16px; }
+    .check-row input[type=number] {
+      width: 72px;
+      padding: 4px 8px;
+      border: 1px solid #ced4da;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    .check-row input[type=number]:disabled { background: #f8f9fa; color: #adb5bd; }
+    .muted { color: #6c757d; font-size: 13px; }
+
+    /* ── Convert button + progress ── */
+    #convert-section { display: none; text-align: center; }
+
+    #btn-convert {
+      background: #0d6efd;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 12px 48px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+    #btn-convert:hover:not(:disabled) { background: #0b5ed7; }
+    #btn-convert:disabled { opacity: .55; cursor: default; }
+
+    .progress-wrap {
+      margin-top: 18px;
+      display: none;
+    }
+    .progress-bar-bg {
+      background: #e9ecef;
+      border-radius: 20px;
+      height: 12px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #0d6efd;
+      border-radius: 20px;
+      transition: width .4s ease;
+      width: 0%;
+    }
+    .progress-label {
+      font-size: 13px;
+      color: #6c757d;
+      margin-top: 6px;
+    }
+    .error-msg {
+      color: #dc3545;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    #btn-download {
+      display: none;
+      margin: 16px auto 0;
+      background: #198754;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 40px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    #btn-download:hover { background: #146c43; }
+
+    #btn-new {
+      display: none;
+      margin: 10px auto 0;
+      background: none;
+      color: #6c757d;
+      border: 1px solid #ced4da;
+      border-radius: 7px;
+      padding: 8px 32px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #btn-new:hover { border-color: #6c757d; }
+
+    /* Utility */
+    .hidden { display: none !important; }
+    .mt-4 { margin-top: 4px; }
+    .mt-8 { margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<header>&#127909; Media Converter</header>
+
+<!-- ── Phase 1: Upload ── -->
+<div class="card" id="phase-upload">
+  <h2>Upload a video</h2>
+  <div id="drop-zone" role="button" tabindex="0" aria-label="Upload area">
+    <span class="icon">&#128228;</span>
+    <strong>Drag &amp; drop your video here</strong>
+    <p>or click to browse &mdash; MP4, MOV, AVI, MKV&hellip; up to 500 MB</p>
+  </div>
+  <input type="file" id="file-input" accept="video/*,.avi,.mkv,.wmv,.m4v,.flv,.ts,.3gp" />
+  <div id="upload-status" class="mt-8 muted"></div>
+</div>
+
+<!-- ── Phase 2: Trim ── -->
+<div class="card hidden" id="phase-trim">
+  <h2>Trim (optional)</h2>
+  <div class="video-wrap">
+    <video id="preview-video" controls playsinline></video>
+  </div>
+
+  <div class="trim-track" id="trim-track">
+    <div class="rail"></div>
+    <div class="fill" id="trim-fill"></div>
+    <input type="range" id="trim-start" min="0" max="100" step="0.01" value="0" />
+    <input type="range" id="trim-end"   min="0" max="100" step="0.01" value="100" />
+  </div>
+  <div class="trim-labels">
+    <span id="lbl-start">00:00</span>
+    <span class="selected-dur" id="lbl-dur"></span>
+    <span id="lbl-end">00:00</span>
+  </div>
+  <button class="trim-reset" id="btn-reset-trim">Reset trim</button>
+</div>
+
+<!-- ── Phase 3: Options + Convert ── -->
+<div class="card hidden" id="phase-options">
+  <h2>Options</h2>
+
+  <div class="option-group">
+    <label class="group-label">Output format</label>
+    <div class="fmt-radios">
+      <label>
+        <input type="radio" name="fmt" value="AVI" checked />
+        <span>AVI</span>
+      </label>
+      <label>
+        <input type="radio" name="fmt" value="MOV" />
+        <span>MOV</span>
+      </label>
+      <label>
+        <input type="radio" name="fmt" value="MP4" />
+        <span>MP4</span>
+      </label>
+    </div>
+    <div class="fmt-desc" id="fmt-desc">Device compatible &mdash; MJPEG + PCM mono 48 kHz</div>
+  </div>
+
+  <div class="option-group">
+    <label class="group-label">Extra options</label>
+    <div class="check-row">
+      <input type="checkbox" id="chk-countdown" checked />
+      <label for="chk-countdown">Append 3&#8211;2&#8211;1 countdown to end</label>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="chk-sizelimit" checked />
+      <label for="chk-sizelimit">Limit file size to</label>
+      <input type="number" id="inp-sizelimit" value="15" min="1" max="999" step="1" />
+      <span class="muted">MB &nbsp;(bitrate auto-adjusted)</span>
+    </div>
+  </div>
+
+  <!-- Convert + progress -->
+  <div style="text-align:center">
+    <button id="btn-convert">Convert</button>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-label" id="progress-label">Starting&hellip;</div>
+      <div class="error-msg hidden" id="error-msg"></div>
+    </div>
+
+    <a id="btn-download">&#11015; Download</a>
+    <button id="btn-new">Convert another file</button>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+const state = {
+  fileId:   null,
+  filename: null,
+  duration: 0,
+  blobUrl:  null,   // local Blob URL for preview (no server round-trip)
+  trimStart: 0,
+  trimEnd:   0,
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Element refs
+// ─────────────────────────────────────────────────────────────────────────────
+const dropZone      = document.getElementById('drop-zone');
+const fileInput     = document.getElementById('file-input');
+const uploadStatus  = document.getElementById('upload-status');
+const phaseUpload   = document.getElementById('phase-upload');
+const phaseTrim     = document.getElementById('phase-trim');
+const phaseOptions  = document.getElementById('phase-options');
+const previewVideo  = document.getElementById('preview-video');
+const trimStart     = document.getElementById('trim-start');
+const trimEnd       = document.getElementById('trim-end');
+const trimFill      = document.getElementById('trim-fill');
+const lblStart      = document.getElementById('lbl-start');
+const lblEnd        = document.getElementById('lbl-end');
+const lblDur        = document.getElementById('lbl-dur');
+const btnResetTrim  = document.getElementById('btn-reset-trim');
+const fmtRadios     = document.querySelectorAll('input[name="fmt"]');
+const fmtDesc       = document.getElementById('fmt-desc');
+const chkCountdown  = document.getElementById('chk-countdown');
+const chkSizeLimit  = document.getElementById('chk-sizelimit');
+const inpSizeLimit  = document.getElementById('inp-sizelimit');
+const btnConvert    = document.getElementById('btn-convert');
+const progressWrap  = document.getElementById('progress-wrap');
+const progressFill  = document.getElementById('progress-fill');
+const progressLabel = document.getElementById('progress-label');
+const errorMsg      = document.getElementById('error-msg');
+const btnDownload   = document.getElementById('btn-download');
+const btnNew        = document.getElementById('btn-new');
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtTime(sec) {
+  const s = Math.round(sec);
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+}
+
+function show(el)  { el.classList.remove('hidden'); }
+function hide(el)  { el.classList.add('hidden'); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Upload
+// ─────────────────────────────────────────────────────────────────────────────
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+async function handleFile(file) {
+  uploadStatus.textContent = 'Uploading…';
+  dropZone.classList.add('has-file');
+  dropZone.innerHTML = `<span class="icon">&#9203;</span><strong>${file.name}</strong><p>Uploading…</p>`;
+
+  // Create a local Blob URL immediately for the video preview
+  if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
+  state.blobUrl = URL.createObjectURL(file);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt);
+    }
+    const data = await res.json();
+    state.fileId   = data.file_id;
+    state.filename = data.filename;
+    state.duration = data.duration || 0;
+    state.trimStart = 0;
+    state.trimEnd   = state.duration;
+
+    dropZone.innerHTML = `
+      <span class="icon">&#9989;</span>
+      <strong>${data.filename}</strong>
+      <p>Duration: ${fmtTime(state.duration)}</p>`;
+
+    initTrim();
+    show(phaseTrim);
+    show(phaseOptions);
+
+  } catch (err) {
+    dropZone.innerHTML = `<span class="icon">&#10060;</span><strong>Upload failed</strong><p>${err.message}</p>`;
+    dropZone.classList.remove('has-file');
+    uploadStatus.textContent = '';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trim
+// ─────────────────────────────────────────────────────────────────────────────
+function initTrim() {
+  previewVideo.src = state.blobUrl;
+
+  const dur = state.duration;
+  trimStart.value = 0;
+  trimEnd.value   = 100;
+
+  updateTrimUI();
+}
+
+let lastSliderMoved = null;
+
+trimStart.addEventListener('input', () => {
+  // Keep start <= end - 1s
+  const startPct = parseFloat(trimStart.value);
+  const endPct   = parseFloat(trimEnd.value);
+  if (startPct >= endPct - (1 / state.duration * 100)) {
+    trimStart.value = Math.max(0, endPct - (1 / state.duration * 100));
+  }
+  lastSliderMoved = 'start';
+  updateTrimUI();
+  seekVideo('start');
+});
+
+trimEnd.addEventListener('input', () => {
+  const startPct = parseFloat(trimStart.value);
+  const endPct   = parseFloat(trimEnd.value);
+  if (endPct <= startPct + (1 / state.duration * 100)) {
+    trimEnd.value = Math.min(100, startPct + (1 / state.duration * 100));
+  }
+  lastSliderMoved = 'end';
+  updateTrimUI();
+  seekVideo('end');
+});
+
+function updateTrimUI() {
+  const sp = parseFloat(trimStart.value);
+  const ep = parseFloat(trimEnd.value);
+
+  const startSec = sp / 100 * state.duration;
+  const endSec   = ep / 100 * state.duration;
+
+  state.trimStart = startSec;
+  state.trimEnd   = endSec;
+
+  lblStart.textContent = fmtTime(startSec);
+  lblEnd.textContent   = fmtTime(endSec);
+  lblDur.textContent   = `${fmtTime(endSec - startSec)} selected`;
+
+  // Update fill bar
+  trimFill.style.left  = sp + '%';
+  trimFill.style.width = (ep - sp) + '%';
+}
+
+function seekVideo(which) {
+  const sec = which === 'start' ? state.trimStart : state.trimEnd;
+  previewVideo.currentTime = sec;
+}
+
+btnResetTrim.addEventListener('click', () => {
+  trimStart.value = 0;
+  trimEnd.value   = 100;
+  updateTrimUI();
+  previewVideo.currentTime = 0;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Format descriptions
+// ─────────────────────────────────────────────────────────────────────────────
+const FMT_DESCS = {
+  AVI: 'Device compatible &mdash; MJPEG + PCM mono 48&thinsp;kHz',
+  MOV: 'Device compatible &mdash; H.264 + PCM stereo 48&thinsp;kHz',
+  MP4: 'General purpose &mdash; H.264 + AAC 128&thinsp;kbps',
+};
+fmtRadios.forEach(r => {
+  r.addEventListener('change', () => { fmtDesc.innerHTML = FMT_DESCS[r.value]; });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Size-limit toggle
+// ─────────────────────────────────────────────────────────────────────────────
+chkSizeLimit.addEventListener('change', () => {
+  inpSizeLimit.disabled = !chkSizeLimit.checked;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convert
+// ─────────────────────────────────────────────────────────────────────────────
+btnConvert.addEventListener('click', startConvert);
+
+async function startConvert() {
+  btnConvert.disabled = true;
+  show(progressWrap);
+  hide(errorMsg);
+  hide(btnDownload);
+  hide(btnNew);
+  progressFill.style.width = '5%';
+  progressLabel.textContent = 'Starting…';
+
+  const fmt       = document.querySelector('input[name="fmt"]:checked').value;
+  const countdown = chkCountdown.checked;
+  const sizeLimit = chkSizeLimit.checked;
+  const sizeMb    = parseFloat(inpSizeLimit.value) || 15;
+
+  // Trim: send -1 for trimEnd if full clip
+  const trimStartSec = state.trimStart;
+  const trimEndSec   = (state.trimEnd < state.duration - 0.1) ? state.trimEnd : -1;
+
+  const fd = new FormData();
+  fd.append('file_id',   state.fileId);
+  fd.append('filename',  state.filename);
+  fd.append('fmt',       fmt);
+  fd.append('countdown', countdown);
+  fd.append('size_limit', sizeLimit);
+  fd.append('size_mb',   sizeMb);
+  fd.append('trim_start', trimStartSec);
+  fd.append('trim_end',   trimEndSec);
+
+  try {
+    const res = await fetch('/convert', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error(await res.text());
+    const { job_id } = await res.json();
+    pollStatus(job_id);
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function pollStatus(jobId) {
+  const interval = setInterval(async () => {
+    try {
+      const res  = await fetch(`/status/${jobId}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      progressFill.style.width = data.progress + '%';
+      progressLabel.textContent = data.message || `${Math.round(data.progress)}%`;
+
+      if (data.status === 'done') {
+        clearInterval(interval);
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Done!';
+        btnDownload.href    = `/download/${jobId}`;
+        btnDownload.download = '';
+        show(btnDownload);
+        show(btnNew);
+        btnConvert.disabled = false;
+      } else if (data.status === 'error') {
+        clearInterval(interval);
+        showError(data.message || 'Conversion failed.');
+        btnConvert.disabled = false;
+      }
+    } catch (err) {
+      clearInterval(interval);
+      showError('Lost connection to server.');
+      btnConvert.disabled = false;
+    }
+  }, 1500);
+}
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  show(errorMsg);
+  progressLabel.textContent = 'Error.';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convert another file
+// ─────────────────────────────────────────────────────────────────────────────
+btnNew.addEventListener('click', () => {
+  // Reset everything
+  state.fileId = null;
+  state.filename = null;
+  state.duration = 0;
+  if (state.blobUrl) { URL.revokeObjectURL(state.blobUrl); state.blobUrl = null; }
+
+  dropZone.classList.remove('has-file', 'drag-over');
+  dropZone.innerHTML = `
+    <span class="icon">&#128228;</span>
+    <strong>Drag &amp; drop your video here</strong>
+    <p>or click to browse &mdash; MP4, MOV, AVI, MKV&hellip; up to 500 MB</p>`;
+  fileInput.value = '';
+  uploadStatus.textContent = '';
+
+  previewVideo.src = '';
+  trimStart.value = 0;
+  trimEnd.value   = 100;
+
+  hide(phaseTrim);
+  hide(phaseOptions);
+  progressWrap.style.display = 'none';
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Starting…';
+  hide(errorMsg);
+  hide(btnDownload);
+  hide(btnNew);
+  btnConvert.disabled = false;
+});
+
+// Init
+updateTrimUI();
+</script>
+</body>
+</html>
