@@ -236,7 +236,6 @@
 
     .progress-wrap {
       margin-top: 18px;
-      display: none;
     }
     .progress-bar-bg {
       background: #e9ecef;
@@ -263,7 +262,6 @@
     }
 
     #btn-download {
-      display: none;
       margin: 16px auto 0;
       background: #198754;
       color: #fff;
@@ -279,7 +277,6 @@
     #btn-download:hover { background: #146c43; }
 
     #btn-new {
-      display: none;
       margin: 10px auto 0;
       background: none;
       color: #6c757d;
@@ -375,7 +372,7 @@
   <div style="text-align:center">
     <button id="btn-convert">Convert</button>
 
-    <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-wrap hidden" id="progress-wrap">
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
@@ -383,8 +380,8 @@
       <div class="error-msg hidden" id="error-msg"></div>
     </div>
 
-    <a id="btn-download">&#11015; Download</a>
-    <button id="btn-new">Convert another file</button>
+    <a id="btn-download" class="hidden">&#11015; Download</a>
+    <button id="btn-new" class="hidden">Convert another file</button>
   </div>
 </div>
 
@@ -631,6 +628,7 @@ async function startConvert() {
     pollStatus(job_id);
   } catch (err) {
     showError(err.message);
+    btnConvert.disabled = false;
   }
 }
 
@@ -696,7 +694,7 @@ btnNew.addEventListener('click', () => {
 
   hide(phaseTrim);
   hide(phaseOptions);
-  progressWrap.style.display = 'none';
+  hide(progressWrap);
   progressFill.style.width = '0%';
   progressLabel.textContent = 'Starting…';
   hide(errorMsg);
