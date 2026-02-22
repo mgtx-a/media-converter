@@ -8,6 +8,8 @@ import os
 import shutil
 import subprocess
 import threading
+import time
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -30,6 +32,24 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Media Converter")
+
+
+def _keep_alive():
+    """Ping the app's own health endpoint every 10 minutes to prevent Render spin-down."""
+    time.sleep(60)  # wait for server to finish starting up before first ping
+    while True:
+        try:
+            urllib.request.urlopen("http://localhost:8000/ping", timeout=10)
+        except Exception:
+            pass
+        time.sleep(10 * 60)
+
+threading.Thread(target=_keep_alive, daemon=True).start()
+
+
+@app.get("/ping")
+async def ping():
+    return "ok"
 
 # Serve static files (index.html)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
